@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歐洲卡車模擬2 - 司機里程成就與生涯系統 (ETS2 Driver System)</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Canvas Confetti for Achievement Celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+    <!-- html2canvas for poster generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ets: {
+                            orange: '#f39c12',
+                            amber: '#ff9f43',
+                            gold: '#ffd700',
+                            dark: '#0c0d10',
+                            card: '#16181e',
+                            cardHover: '#1f222b',
+                            border: '#292d38',
+                            accent: '#ff6b00',
+                            steam: '#171a21',
+                            steamBlue: '#66c0f4',
+                            steamHover: '#2a475e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                        tech: ['Chakra Petch', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0b0c0e;
+            color: #e2e8f0;
+            font-family: 'Noto Sans TC', sans-serif;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(243, 156, 18, 0.08) 0%, transparent 60%),
+                linear-gradient(to bottom, rgba(11, 12, 14, 0.85), #0b0c0e);
+            background-attachment: fixed;
+        }
+
+        .ets-glow {
+            box-shadow: 0 0 20px rgba(243, 156, 18, 0.25);
+        }
+
+        .steam-glow {
+            box-shadow: 0 0 20px rgba(102, 192, 244, 0.25);
+        }
+
+        .text-ets-amber {
+            color: #ff9f43;
+            text-shadow: 0 0 8px rgba(255, 159, 67, 0.4);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121317;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2d36;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f39c12;
+        }
+
+        @keyframes modalPop {
+            0% { transform: scale(0.85) translateY(20px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .animate-modal {
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .animate-shimmer {
+            background: linear-gradient(90deg, rgba(243,156,18,0.05) 0%, rgba(255,215,0,0.3) 50%, rgba(243,156,18,0.05) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2.5s infinite;
+        }
+
+        @keyframes floatTruck {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        .animate-truck {
+            animation: floatTruck 0.8s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Top Header Navigation Bar -->
+    <header class="border-b border-ets-border bg-ets-dark/95 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            
+            <!-- Logo & Brand -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('home')">
+                <div class="bg-gradient-to-br from-ets-orange to-amber-600 p-2 rounded-xl text-black font-black text-xl flex items-center justify-center shadow-lg shadow-ets-orange/20">
+                    <i class="fa-solid fa-truck-front"></i>
+                </div>
+                <div>
+                    <h1 class="font-tech text-lg sm:text-xl font-bold tracking-wider text-white uppercase flex items-center gap-2">
+                        <span>Euro Trucker</span>
+                        <span class="text-ets-orange text-[10px] px-2 py-0.5 rounded bg-ets-orange/10 border border-ets-orange/30 font-semibold">v3.0 PRO</span>
+                    </h1>
+                    <p class="text-[11px] text-gray-400 hidden sm:block">《歐洲卡車模擬2》成就與里程大亨系統</p>
+                </div>
+            </div>
+
+            <!-- Central Navigation Links -->
+            <nav class="hidden md:flex items-center gap-1 font-tech text-sm">
+                <button onclick="switchView('home')" id="nav-home" class="px-4 py-2 rounded-xl transition flex items-center gap-2 text-ets-orange bg-ets-orange/10 font-bold border border-ets-orange/30">
+                    <i class="fa-solid fa-house"></i> 首頁
+                </button>
+                <button onclick="switchView('achievements')" id="nav-achievements" class="px-4 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-ets-card transition flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-yellow-400"></i> 成就中心 <span id="navBadgeAchCount" class="text-[10px] bg-ets-border text-ets-orange px-1.5 py-0.5 rounded-full font-bold">0/50</span>
+                </button>
+                <button onclick="switchView('logs')" id="nav-logs" class="px-4 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-ets-card transition flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-list text-ets-amber"></i> 貨運日誌
+                </button>
+            </nav>
+
+            <!-- Right Controls (Steam Login & Driver Quick Profile) -->
+            <div class="flex items-center gap-3">
+                <button onclick="openSteamConnectModal()" id="headerSteamStatusBtn" class="flex items-center gap-2 bg-ets-steam border border-ets-steamBlue/40 px-3 py-1.5 rounded-xl transition text-xs hover:bg-ets-steamHover text-gray-200 shadow-md">
+                    <span class="relative flex h-2 w-2">
+                      <span id="steamStatusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
+                      <span id="steamStatusDot" class="relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
+                    </span>
+                    <i class="fa-brands fa-steam text-ets-steamBlue text-sm"></i>
+                    <span id="headerSteamStatusText" class="font-tech font-bold">Steam 登入</span>
+                </button>
+
+                <button onclick="openAvatarModal()" class="flex items-center gap-2 bg-ets-card hover:bg-ets-cardHover border border-ets-border px-3 py-1.5 rounded-xl transition text-xs">
+                    <span id="headerAvatar" class="text-base">🚛</span>
+                    <span id="headerDriverName" class="font-bold text-gray-200 hidden sm:inline">歐卡老司機</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-8 flex-grow w-full">
+
+        <!-- VIEW 1: HOME PAGE VIEW -->
+        <div id="view-home" class="space-y-8">
+            
+            <!-- Hero Landing Banner with High-Res Truck Background -->
+            <div class="relative rounded-3xl overflow-hidden border border-ets-border shadow-2xl bg-ets-card min-h-[380px] sm:min-h-[420px] flex items-center">
+                <img src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?q=80&w=1600&auto=format&fit=crop" alt="ETS2 Hero Truck" class="absolute inset-0 w-full h-full object-cover object-center opacity-30 mix-blend-luminosity scale-105 transition-transform duration-1000 hover:scale-100">
+                <div class="absolute inset-0 bg-gradient-to-r from-ets-dark via-ets-dark/90 to-transparent"></div>
+
+                <div class="relative z-10 p-6 sm:p-12 max-w-2xl space-y-5">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-ets-orange/10 border border-ets-orange/30 text-ets-amber text-xs font-tech font-bold">
+                        <i class="fa-solid fa-fire text-ets-orange"></i> ETS2 DRIVER MILEAGE SYSTEM
+                    </div>
+                    <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                        征服歐洲公路 <br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-ets-orange via-yellow-400 to-amber-200">創造你的百萬公里傳奇</span>
+                    </h2>
+                    <p class="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                        連結 Steam 官方數據，解鎖超過 50+ 項經典與極限成就。記錄每一趟長途貨運，生成屬於你的專屬卡車司機生涯名片！
+                    </p>
+
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button onclick="switchView('achievements')" class="px-6 py-3 bg-gradient-to-r from-ets-orange to-amber-600 hover:from-amber-600 hover:to-ets-orange text-black font-extrabold text-sm rounded-xl transition shadow-xl shadow-ets-orange/20 flex items-center gap-2">
+                            <i class="fa-solid fa-trophy"></i> 探索 50+ 解鎖成就
+                        </button>
+                        <button onclick="openSteamConnectModal()" class="px-6 py-3 bg-ets-steam hover:bg-ets-steamHover border border-ets-steamBlue/50 text-ets-steamBlue hover:text-white font-bold text-sm rounded-xl transition flex items-center gap-2">
+                            <i class="fa-brands fa-steam text-base"></i> 同步 Steam 官方數據
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Driver Dashboard Info Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Driver License Card Preview -->
+                <div id="driverCardElement" class="bg-gradient-to-br from-ets-card to-[#12141a] border-2 border-ets-border rounded-2xl p-5 relative overflow-hidden shadow-xl">
+                    <div class="flex items-center justify-between border-b border-ets-border/60 pb-3 mb-4">
+                        <span class="text-ets-orange font-tech text-xs tracking-widest uppercase font-bold">Euro Truck Driver License</span>
+                        <span id="driverLevelBadge" class="bg-ets-orange/20 border border-ets-orange/40 text-ets-amber text-xs font-bold font-tech px-2.5 py-0.5 rounded-full">
+                            LVL 1 新手司機
+                        </span>
+                    </div>
+
+                    <div class="flex items-start gap-4">
+                        <div class="relative group cursor-pointer" onclick="openAvatarModal()">
+                            <div id="driverAvatarDisplay" class="w-20 h-20 bg-ets-dark rounded-xl border-2 border-ets-orange/50 flex items-center justify-center text-4xl shadow-inner overflow-hidden">
+                                🚛
+                            </div>
+                            <div class="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition text-white font-bold">
+                                編輯頭像
+                            </div>
+                        </div>
+
+                        <div class="flex-1 space-y-1">
+                            <div class="flex items-center gap-2">
+                                <h2 id="driverNameDisplay" class="text-xl font-bold text-white tracking-wide truncate">歐卡老司機</h2>
+                                <a id="steamProfileLink" href="#" target="_blank" class="hidden text-xs text-ets-steamBlue hover:underline" title="檢視 Steam 個人檔案">
+                                    <i class="fa-brands fa-steam"></i>
+                                </a>
+                            </div>
+                            <p id="driverTitleDisplay" class="text-xs text-ets-amber font-medium">公路新手 (Road Novice)</p>
+                            
+                            <div class="pt-2 flex flex-col gap-1 text-xs text-gray-400">
+                                <div class="flex justify-between">
+                                    <span>經驗值 (XP):</span>
+                                    <span id="driverXPDisplay" class="font-tech font-bold text-white">0 XP</span>
+                                </div>
+                                <div class="w-full bg-ets-dark rounded-full h-1.5 overflow-hidden">
+                                    <div id="xpProgressBar" class="bg-gradient-to-r from-ets-orange to-yellow-400 h-full w-0 transition-all duration-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 bg-ets-dark/80 rounded-xl p-3 border border-ets-border/60 text-xs grid grid-cols-2 gap-2 font-tech">
+                        <div>
+                            <span class="text-gray-400 text-[11px] block">Steam ETS2 時間</span>
+                            <span id="steamPlaytimeDisplay" class="font-bold text-ets-steamBlue text-sm">-- 小時</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-[11px] block">總解鎖成就進度</span>
+                            <span id="unlockedCountDisplay" class="font-bold text-yellow-400 text-sm">0 / 50</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-ets-border/60 flex gap-2">
+                        <button onclick="openAvatarModal()" class="flex-1 py-2 bg-ets-dark hover:bg-ets-border border border-ets-border text-xs rounded-xl text-gray-300 font-bold transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-user-pen"></i> 編輯檔案
+                        </button>
+                        <button onclick="generateShareCard()" class="flex-1 py-2 bg-ets-orange/20 hover:bg-ets-orange/30 border border-ets-orange/40 text-xs rounded-xl text-ets-amber font-extrabold transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-id-card"></i> 生涯海報名片
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Distance Control & Quick Increments -->
+                <div class="lg:col-span-2 bg-ets-card border border-ets-border rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                            <h3 class="font-tech text-base font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-tachometer-alt text-ets-orange"></i>
+                                里程追蹤與模擬器 (Mileage Tracker)
+                            </h3>
+                            <span id="nextAchievementTip" class="text-xs text-ets-amber bg-ets-orange/10 px-3 py-1 rounded-full border border-ets-orange/20 font-medium">
+                                下一成就：載入中...
+                            </span>
+                        </div>
+
+                        <!-- Progress Bar Container -->
+                        <div class="bg-ets-dark p-4 rounded-xl border border-ets-border relative mb-5">
+                            <div class="flex justify-between text-xs text-gray-400 mb-2 font-tech">
+                                <span>0 km</span>
+                                <span id="progressPercentDisplay" class="text-ets-amber font-bold">進度: 0%</span>
+                                <span id="nextGoalKmDisplay">目標: 50,000 km</span>
+                            </div>
+
+                            <div class="relative w-full bg-gray-800 rounded-full h-4 overflow-visible my-2">
+                                <div id="mainProgressBar" class="bg-gradient-to-r from-ets-orange via-yellow-500 to-amber-300 h-full rounded-full transition-all duration-700 relative" style="width: 0%;">
+                                    <div class="absolute -right-3 -top-3 text-lg text-yellow-300 drop-shadow-[0_0_8px_rgba(243,156,18,0.8)] animate-truck">
+                                        <i class="fa-solid fa-truck-moving"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Control Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div class="bg-ets-dark/50 p-3 rounded-xl border border-ets-border/60">
+                                <label class="block text-xs text-gray-400 mb-1 font-medium">手動校正總里程 (km)</label>
+                                <div class="flex gap-2">
+                                    <input type="number" id="manualKmInput" placeholder="例如 125000" class="w-full bg-ets-dark border border-ets-border rounded-lg px-3 py-1.5 text-xs font-tech text-white focus:outline-none focus:border-ets-orange">
+                                    <button onclick="setManualMileage()" class="bg-ets-orange hover:bg-amber-600 text-black font-bold px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition">
+                                        更新
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bg-ets-dark/50 p-3 rounded-xl border border-ets-border/60 flex flex-col justify-center">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-xs text-gray-400 font-medium">Steam 時數估測巡航車速</span>
+                                    <span id="speedValueLabel" class="text-xs font-tech text-ets-steamBlue font-bold">68 km/h</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="range" id="speedSlider" min="40" max="95" value="68" oninput="updateSpeedMultiplier(this.value)" class="w-full accent-ets-orange cursor-pointer">
+                                    <button onclick="recalculateSteamKm()" class="bg-ets-steamBlue hover:bg-sky-400 text-black font-bold px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition">
+                                        套用
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Increment Simulators -->
+                        <div class="bg-ets-dark/30 p-2.5 rounded-xl border border-ets-border/40 flex items-center justify-between gap-2 mb-2">
+                            <span class="text-xs text-gray-400 font-medium whitespace-nowrap">快捷模擬微調:</span>
+                            <div class="flex gap-2 w-full">
+                                <button onclick="addMileage(1000)" class="flex-1 bg-ets-card hover:bg-ets-border border border-ets-border text-xs py-1 rounded-lg text-white font-tech transition">+1,000 km</button>
+                                <button onclick="addMileage(5000)" class="flex-1 bg-ets-card hover:bg-ets-border border border-ets-border text-xs py-1 rounded-lg text-white font-tech transition">+5,000 km</button>
+                                <button onclick="addMileage(25000)" class="flex-1 bg-ets-card hover:bg-ets-border border border-ets-border text-xs py-1 rounded-lg text-white font-tech transition">+25,000 km</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between border-t border-ets-border/60 pt-3 mt-2">
+                        <button onclick="openDeliveryModal()" class="bg-gradient-to-r from-ets-orange to-amber-600 hover:from-amber-600 hover:to-ets-orange text-black font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg transition">
+                            <i class="fa-solid fa-file-invoice"></i> 登記單趟貨運任務 (+新增里程)
+                        </button>
+                        <button onclick="resetData()" class="text-xs text-gray-500 hover:text-red-400 transition flex items-center gap-1">
+                            <i class="fa-solid fa-rotate-left"></i> 重置數據
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fun Distance Equivalence Section -->
+            <div class="bg-ets-card border border-ets-border rounded-2xl p-5 shadow-xl">
+                <h3 class="font-tech text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-globe text-ets-orange"></i>
+                    里程趣味等價換算 (Fun Distance Equivalence)
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-ets-dark/70 border border-ets-border/60 rounded-xl p-3.5 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center text-xl shrink-0">🌍</div>
+                        <div>
+                            <span class="block text-[11px] text-gray-400">赤道繞地球圈數</span>
+                            <span id="equivEarthDisplay" class="font-tech font-bold text-white text-base">0.00 圈</span>
+                        </div>
+                    </div>
+                    <div class="bg-ets-dark/70 border border-ets-border/60 rounded-xl p-3.5 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl shrink-0">🌕</div>
+                        <div>
+                            <span class="block text-[11px] text-gray-400">往返月球距離比例</span>
+                            <span id="equivMoonDisplay" class="font-tech font-bold text-white text-base">0.00 %</span>
+                        </div>
+                    </div>
+                    <div class="bg-ets-dark/70 border border-ets-border/60 rounded-xl p-3.5 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-xl shrink-0">🗼</div>
+                        <div>
+                            <span class="block text-[11px] text-gray-400">倫敦 ↔ 巴黎 (340km)</span>
+                            <span id="equivLondonParisDisplay" class="font-tech font-bold text-white text-base">0 次</span>
+                        </div>
+                    </div>
+                    <div class="bg-ets-dark/70 border border-ets-border/60 rounded-xl p-3.5 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl shrink-0">🏔️</div>
+                        <div>
+                            <span class="block text-[11px] text-gray-400">縱貫歐洲 (約3500km)</span>
+                            <span id="equivEuroCrossDisplay" class="font-tech font-bold text-white text-base">0 趟</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- VIEW 2: EXPANDED ACHIEVEMENTS SYSTEM VIEW -->
+        <div id="view-achievements" class="space-y-6 hidden">
+            <div class="bg-ets-card border border-ets-border rounded-2xl p-6 shadow-xl">
+                
+                <!-- Category & Search Filters Control Panel -->
+                <div class="space-y-4 border-b border-ets-border pb-6 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-2xl font-black text-white font-tech flex items-center gap-2">
+                                <i class="fa-solid fa-trophy text-ets-orange"></i> 成就解鎖中心 (50+ Achievements)
+                            </h2>
+                            <p class="text-xs text-gray-400">探索所有里程階梯、重型特種運輸、地理征服與生涯挑戰成就！</p>
+                        </div>
+
+                        <!-- Real-time Search Input -->
+                        <div class="relative w-full md:w-72">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-500 text-xs"></i>
+                            <input type="text" id="achSearchInput" oninput="renderAchievements()" placeholder="搜尋成就名稱或描述..." class="w-full bg-ets-dark border border-ets-border rounded-xl pl-8 pr-3 py-2 text-xs text-white focus:outline-none focus:border-ets-orange">
+                        </div>
+                    </div>
+
+                    <!-- Category Tab Selectors -->
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <button onclick="setCategoryFilter('all')" id="cat-all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition bg-ets-orange text-black">全部成就 (All)</button>
+                        <button onclick="setCategoryFilter('mileage')" id="cat-mileage" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-ets-dark transition"><i class="fa-solid fa-road mr-1"></i> 總里程成就</button>
+                        <button onclick="setCategoryFilter('heavy')" id="cat-heavy" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-ets-dark transition"><i class="fa-solid fa-weight-hanging mr-1"></i> 重型與特種</button>
+                        <button onclick="setCategoryFilter('regional')" id="cat-regional" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-ets-dark transition"><i class="fa-solid fa-map-location-dot mr-1"></i> 地理與區域</button>
+                        <button onclick="setCategoryFilter('career')" id="cat-career" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-ets-dark transition"><i class="fa-solid fa-truck-ramp-box mr-1"></i> 車隊與生涯</button>
+                        <button onclick="setCategoryFilter('fun')" id="cat-fun" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-ets-dark transition"><i class="fa-solid fa-gamepad mr-1"></i> 趣味與極限</button>
+                    </div>
+
+                    <!-- Status Filter Tabs -->
+                    <div class="flex justify-between items-center pt-1 text-xs">
+                        <div class="flex gap-2">
+                            <button onclick="setStatusFilter('all')" id="status-all" class="text-ets-amber font-bold underline">全部</button>
+                            <span class="text-gray-600">|</span>
+                            <button onclick="setStatusFilter('unlocked')" id="status-unlocked" class="text-gray-400 hover:text-white">已解鎖</button>
+                            <span class="text-gray-600">|</span>
+                            <button onclick="setStatusFilter('locked')" id="status-locked" class="text-gray-400 hover:text-white">未解鎖</button>
+                        </div>
+                        <span id="filteredResultsCount" class="text-gray-500 font-tech">顯示 0 / 50 個成就</span>
+                    </div>
+                </div>
+
+                <!-- Achievements Grid -->
+                <div id="achievementsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Dynamic rendering via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: DELIVERY LOG VIEW -->
+        <div id="view-logs" class="space-y-6 hidden">
+            <div class="bg-ets-card border border-ets-border rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between border-b border-ets-border pb-4 mb-4">
+                    <h3 class="font-tech text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-ets-orange"></i>
+                        貨運配送日誌 (Delivery Logs)
+                    </h3>
+                    <button onclick="openDeliveryModal()" class="px-4 py-2 bg-ets-orange hover:bg-amber-600 text-black font-bold text-xs rounded-xl transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> 新增任務
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead>
+                            <tr class="text-gray-400 border-b border-ets-border/60 font-tech">
+                                <th class="pb-3 font-semibold">時間</th>
+                                <th class="pb-3 font-semibold">路線 (出發地 → 目的地)</th>
+                                <th class="pb-3 font-semibold">貨物種類</th>
+                                <th class="pb-3 font-semibold text-right">里程 (km)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deliveryLogTableBody" class="divide-y divide-ets-border/30 text-gray-300">
+                            <!-- Rendered by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-xs text-gray-500 border-t border-ets-border/40 pt-6 pb-8">
+        <p>Euro Truck Driver Achievement System v3.0 | 專為《歐洲卡車模擬2》玩家設計的里程與成就紀錄系統</p>
+        <p class="mt-1 text-[11px] text-gray-600">本工具為社群作品，與 SCS Software 或 Valve / Steam 無官方直接隸屬關聯。</p>
+    </footer>
+
+
+    <!-- Modal 1: Steam Connection Modal -->
+    <div id="steamModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-ets-card border border-ets-steamBlue/50 w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-modal relative">
+            <button onclick="closeSteamConnectModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2 font-tech">
+                <i class="fa-brands fa-steam text-ets-steamBlue text-xl"></i>
+                連接 Steam 帳號同步數據
+            </h3>
+            <p class="text-xs text-gray-400 mb-4">輸入您的 Steam ID64 或自訂 Profile，同步 ETS2 官方時數與成就</p>
+
+            <div class="space-y-4">
+                <div class="bg-ets-dark p-3.5 rounded-xl border border-ets-border">
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Steam ID64 / Custom Profile URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="steamInputId" placeholder="例如：76561198012345678" class="w-full bg-ets-card border border-ets-border rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-ets-steamBlue">
+                        <button onclick="syncSteamAccount()" class="bg-ets-steamBlue hover:bg-sky-400 text-black font-bold px-4 py-2 rounded-lg text-xs whitespace-nowrap transition flex items-center gap-1">
+                            <i class="fa-solid fa-rotate"></i> 同步
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-between items-center border-t border-ets-border/60">
+                    <span class="text-xs text-gray-400">沒有 Steam Key？</span>
+                    <button onclick="loadDemoSteamAccount()" class="text-xs text-ets-amber hover:underline font-bold">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> 載入示範 Steam 帳號
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Delivery Log Modal -->
+    <div id="deliveryModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-ets-card border border-ets-border w-full max-w-md rounded-2xl p-6 shadow-2xl animate-modal relative">
+            <button onclick="closeDeliveryModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2 font-tech">
+                <i class="fa-solid fa-truck-loading text-ets-orange"></i>
+                新增貨運配送紀錄
+            </h3>
+            <p class="text-xs text-gray-400 mb-4">記錄一趟配送，自動累加至總里程與 XP！</p>
+
+            <form onsubmit="handleDeliverySubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">出發地</label>
+                    <input type="text" id="logOrigin" required placeholder="例：柏林 (Berlin)" class="w-full bg-ets-dark border border-ets-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-ets-orange">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">目的地</label>
+                    <input type="text" id="logDestination" required placeholder="例：巴黎 (Paris)" class="w-full bg-ets-dark border border-ets-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-ets-orange">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-300 mb-1">本次里程 (km)</label>
+                        <input type="number" id="logDistance" min="1" required placeholder="例：1050" class="w-full bg-ets-dark border border-ets-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-ets-orange">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-300 mb-1">貨物名稱</label>
+                        <input type="text" id="logCargo" placeholder="例：變壓器 / 遊艇" class="w-full bg-ets-dark border border-ets-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-ets-orange">
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeDeliveryModal()" class="px-4 py-2 bg-ets-dark hover:bg-ets-border text-gray-300 text-xs rounded-xl transition">取消</button>
+                    <button type="submit" class="px-5 py-2 bg-ets-orange hover:bg-amber-600 text-black font-bold text-xs rounded-xl transition shadow-lg">儲存任務紀錄</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Driver Avatar Edit Modal -->
+    <div id="avatarModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-ets-card border border-ets-border w-full max-w-md rounded-2xl p-6 shadow-2xl animate-modal relative">
+            <button onclick="closeAvatarModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2 font-tech">
+                <i class="fa-solid fa-user-gear text-ets-orange"></i> 編輯司機檔案
+            </h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">司機名字</label>
+                    <input type="text" id="editDriverName" class="w-full bg-ets-dark border border-ets-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-ets-orange">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-2">選擇司機圖標</label>
+                    <div class="grid grid-cols-5 gap-2 text-2xl">
+                        <button onclick="selectAvatar('🚛')" class="p-2 bg-ets-dark hover:bg-ets-border border border-ets-border rounded-xl">🚛</button>
+                        <button onclick="selectAvatar('🚚')" class="p-2 bg-ets-dark hover:bg-ets-border border border-ets-border rounded-xl">🚚</button>
+                        <button onclick="selectAvatar('🚜')" class="p-2 bg-ets-dark hover:bg-ets-border border border-ets-border rounded-xl">🚜</button>
+                        <button onclick="selectAvatar('👑')" class="p-2 bg-ets-dark hover:bg-ets-border border border-ets-border rounded-xl">👑</button>
+                        <button onclick="selectAvatar('⚡')" class="p-2 bg-ets-dark hover:bg-ets-border border border-ets-border rounded-xl">⚡</button>
+                    </div>
+                </div>
+                <button onclick="saveProfile()" class="px-5 py-2 bg-ets-orange hover:bg-amber-600 text-black font-bold text-xs rounded-xl transition w-full">儲存變更</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Unlock Celebration Popup -->
+    <div id="unlockBannerModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-gradient-to-b from-[#1f232d] to-[#121317] border-2 border-ets-gold w-full max-w-md rounded-2xl p-6 shadow-[0_0_50px_rgba(255,215,0,0.4)] text-center animate-modal relative overflow-hidden">
+            <div class="absolute inset-0 animate-shimmer pointer-events-none opacity-30"></div>
+            <div class="text-5xl mb-2 animate-bounce">🏆</div>
+            <span class="text-[10px] font-tech font-bold text-yellow-400 tracking-widest uppercase bg-yellow-400/10 border border-yellow-400/30 px-3 py-1 rounded-full inline-block mb-2">
+                ACHIEVEMENT UNLOCKED
+            </span>
+            <h2 id="unlockBannerTitle" class="text-2xl font-black text-white mb-2">成就名稱</h2>
+            <p id="unlockBannerDesc" class="text-xs text-gray-300 mb-6 px-4">成就描述說明...</p>
+            <button onclick="closeUnlockBanner()" class="bg-gradient-to-r from-yellow-500 to-ets-orange text-black font-extrabold px-8 py-2.5 rounded-xl text-sm shadow-lg hover:scale-105 transition transform">
+                太棒了！繼續出發 🚛
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 5: Driver Career Poster Card -->
+    <div id="shareModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-ets-card border border-ets-border w-full max-w-lg rounded-2xl p-6 shadow-2xl animate-modal relative">
+            <button onclick="closeShareModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2 font-tech">
+                <i class="fa-solid fa-id-card text-ets-orange"></i>
+                司機生涯成就卡片 (Driver Poster Card)
+            </h3>
+
+            <div id="captureArea" class="bg-gradient-to-br from-[#1c1e24] via-[#121317] to-[#0a0b0d] border-2 border-ets-orange/50 p-6 rounded-2xl shadow-2xl text-white relative my-4">
+                <div class="flex justify-between items-start border-b border-ets-border/80 pb-3 mb-4">
+                    <div>
+                        <div class="text-ets-orange font-tech font-bold text-xs tracking-wider">EURO TRUCK SIMULATOR 2</div>
+                        <div class="text-xs text-gray-400 font-tech">OFFICIAL DRIVER LICENSE</div>
+                    </div>
+                    <span class="bg-ets-orange/20 border border-ets-orange/40 text-ets-amber text-[10px] font-bold font-tech px-2 py-0.5 rounded">
+                        PRO CERTIFIED
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-4 mb-4">
+                    <div id="shareAvatar" class="w-16 h-16 bg-ets-dark rounded-xl border border-ets-orange/40 flex items-center justify-center text-3xl shadow-inner overflow-hidden">🚛</div>
+                    <div>
+                        <div id="shareName" class="text-lg font-bold">歐卡老司機</div>
+                        <div id="shareTitle" class="text-xs text-ets-amber">公路新手</div>
+                        <div id="shareSteamTag" class="text-[11px] text-ets-steamBlue font-tech"><i class="fa-brands fa-steam"></i> Steam 同步玩家</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 bg-ets-dark/80 p-3 rounded-xl border border-ets-border/60 text-center font-tech mb-3">
+                    <div>
+                        <div class="text-[10px] text-gray-400">總行駛里程</div>
+                        <div id="shareKm" class="text-sm font-bold text-ets-orange">0 km</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-gray-400">Steam時間</div>
+                        <div id="shareHours" class="text-sm font-bold text-ets-steamBlue">0 hrs</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-gray-400">已解鎖成就</div>
+                        <div id="shareAchievements" class="text-sm font-bold text-yellow-400">0 / 50</div>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-gray-400 flex justify-between items-center pt-2 border-t border-ets-border/40">
+                    <span>繞地球 <span id="shareEarth" class="text-white">0</span> 圈</span>
+                    <span class="text-ets-orange">ETS2 Driver Achievement System</span>
+                </div>
+            </div>
+
+            <button onclick="downloadCardImage()" class="w-full py-2.5 bg-ets-orange hover:bg-amber-600 text-black font-bold text-xs rounded-xl transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-download"></i> 下載圖片並分享
+            </button>
+        </div>
+    </div>
+
+
+    <script>
+        /* Web Audio Sound Synthesizer */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'unlock') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.5);
+                    if (window.confetti) {
+                        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                    }
+                } else if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.08);
+                }
+            } catch (e) {}
+        }
+
+        /* MASTER ACHIEVEMENTS LIST (50+ Items across 5 Categories & 5 Rarities) */
+        const MASTER_ACHIEVEMENTS = [
+            // CATEGORY 1: MILEAGE TIERS (13 Items)
+            { id: 'm_50', cat: 'mileage', rarity: 'common', icon: '🔑', title: '首趟出發 (First Delivery)', km: 50, desc: '完成首次 50 公里貨運，正式踏上司機生涯！', xp: 100 },
+            { id: 'm_500', cat: 'mileage', rarity: 'common', icon: '🚚', title: '公路試水溫 (Road Beginner)', km: 500, desc: '累計行駛 500 公里，熟練踩下卡車油門。', xp: 200 },
+            { id: 'm_1k', cat: 'mileage', rarity: 'common', icon: '🛣️', title: '千米里程碑 (1k Milestone)', km: 1000, desc: '累計行駛突破 1,000 公里，駛出新手村。', xp: 400 },
+            { id: 'm_5k', cat: 'mileage', rarity: 'rare', icon: '⛽', title: '柴油狂熱者 (Diesel Enthusiast)', km: 5000, desc: '累計行駛 5,000 公里，加油站成為你的第二個家。', xp: 800 },
+            { id: 'm_10k', cat: 'mileage', rarity: 'rare', icon: '🇪🇺', title: '跨國巡航者 (Euro Cruiser)', km: 10000, desc: '累計行駛 10,000 公里，足跡踏遍歐洲多國邊境。', xp: 1500 },
+            { id: 'm_25k', cat: 'mileage', rarity: 'rare', icon: '⛰️', title: '縱橫洲際 (Continental Hauler)', km: 25000, desc: '累計行駛 25,000 公里，征服歐洲各大高速公路。', xp: 3000 },
+            { id: 'm_50k', cat: 'mileage', rarity: 'epic', icon: '🌙', title: '夜行鐵騎 (Night Road Veteran)', km: 50000, desc: '累計行駛 50,000 公里，黑夜與星光是你的夥伴。', xp: 6000 },
+            { id: 'm_100k', cat: 'mileage', rarity: 'epic', icon: '❄️', title: '百萬千米俱樂部 (100k Master)', km: 100000, desc: '累計行駛 100,000 公里！躋身資深卡車老司機行列。', xp: 12000 },
+            { id: 'm_250k', cat: 'mileage', rarity: 'legendary', icon: '🌐', title: '地平線征服者 (Horizon Ender)', km: 250000, desc: '累計 250,000 公里！相當於繞行赤道 6 圈！', xp: 25000 },
+            { id: 'm_500k', cat: 'mileage', rarity: 'legendary', icon: '👑', title: '歐洲卡車帝王 (Euro King)', km: 500000, desc: '累計 500,000 公里！成為物流界的傳奇名宿。', xp: 50000 },
+            { id: 'm_750k', cat: 'mileage', rarity: 'mythic', icon: '🌌', title: '月球之旅 (To The Moon)', km: 750000, desc: '累計 750,000 公里！總距離超越往返月球的趟數！', xp: 75000 },
+            { id: 'm_1m', cat: 'mileage', rarity: 'mythic', icon: '💎', title: '百萬公里不朽傳奇 (1M Legend)', km: 1000000, desc: '達到驚人的 1,000,000 公里！公路歷史將銘記你的名字。', xp: 100000 },
+            { id: 'm_2m', cat: 'mileage', rarity: 'mythic', icon: '🛸', title: '星際卡車領航員 (Intergalactic)', km: 2000000, desc: '達到終極 2,000,000 公里！人類卡車駕駛的最高殿堂。', xp: 250000 },
+
+            // CATEGORY 2: SPECIAL CARGO & HEAVY HAUL (10 Items)
+            { id: 'h_trans', cat: 'heavy', rarity: 'rare', icon: '⚡', title: '變壓器專家 (Transformer Transport)', desc: '成功運送重型電力變壓器（Special Transport），保持零損壞。', xp: 1200 },
+            { id: 'h_yacht', cat: 'heavy', rarity: 'epic', icon: '🛥️', title: '奢華遊艇運送官 (Yacht Handler)', desc: '運送大型豪華遊艇至沿海碼頭港口。', xp: 2000 },
+            { id: 'h_loco', cat: 'heavy', rarity: 'legendary', icon: '🚂', title: '鐵道火車頭搬運工 (Locomotive Hauler)', desc: '成功搬運超過 60 噸的重型火車頭，挑戰極限馬力。', xp: 3500 },
+            { id: 'h_wind', cat: 'heavy', rarity: 'rare', icon: '🌪️', title: '風力發電葉片高手 (Wind Turbine)', desc: '運輸超長風力發電機葉片穿越狹窄鄉間道路。', xp: 1800 },
+            { id: 'h_hazmat1', cat: 'heavy', rarity: 'rare', icon: '☣️', title: '危險品 Class 1-9 (Hazmat Master)', desc: '取得並完成所有 1-9 類危險化學品特種貨物運輸。', xp: 2200 },
+            { id: 'h_oversize', cat: 'heavy', rarity: 'epic', icon: '🚨', title: '超大型貨物警車護航 (Oversized Load)', desc: '在引導警車開路下完成特大型超限貨物運輸任務。', xp: 3000 },
+            { id: 'h_excavator', cat: 'heavy', rarity: 'common', icon: '🚜', title: '重型挖掘機搬運 (Heavy Digger)', desc: '完成大型工程挖掘機與履帶車輛運輸任務。', xp: 800 },
+            { id: 'h_structural', cat: 'heavy', rarity: 'rare', icon: '🏗️', title: '巨型鋼結構專家 (Steel Structure)', desc: '運輸巨型建築鋼樑，支援歐洲基礎建設。', xp: 1500 },
+            { id: 'h_fragile', cat: 'heavy', rarity: 'rare', icon: '🍷', title: '精密易碎品大師 (Fragile Expert)', desc: '完成高價值易碎品運輸，過程未受任何碰撞。', xp: 1600 },
+            { id: 'h_heavy_king', cat: 'heavy', rarity: 'legendary', icon: '🏋️', title: '百噸重裝之王 (Heavy Haul King)', desc: '累計完成 20 趟超重特種運輸貨運。', xp: 5000 },
+
+            // CATEGORY 3: GEOGRAPHIC & REGIONAL EXPEDITIONS (10 Items)
+            { id: 'g_alps', cat: 'regional', rarity: 'rare', icon: '🏔️', title: '阿爾卑斯征服者 (Alpine Climber)', desc: '成功穿越瑞士與奧地利的高海拔阿爾卑斯山脈盤山公路。', xp: 1500 },
+            { id: 'g_arctic', cat: 'regional', rarity: 'epic', icon: '❄️', title: '北極圈冰路勇士 (Arctic Ice Road)', desc: '深入斯堪地那維亞半島極北冰雪公路，感受極光照射。', xp: 2500 },
+            { id: 'g_balkan', cat: 'regional', rarity: 'rare', icon: '🏛️', title: '巴爾幹探索者 (Balkan Explorer)', desc: '完成貫穿克羅埃西亞、塞爾維亞與希臘地區的路線。', xp: 1800 },
+            { id: 'g_iberia', cat: 'regional', rarity: 'rare', icon: '☀️', title: '伊比利追光者 (Iberian Sun Chaser)', desc: '橫跨西班牙與葡萄牙的廣袤烈日荒漠公路。', xp: 1800 },
+            { id: 'g_tunnel', cat: 'regional', rarity: 'common', icon: '🚇', title: '英法海底隧道常客 (Chunnel Commuter)', desc: '使用海底隧道火車穿梭英國倫敦與法國加萊 5 次以上。', xp: 1000 },
+            { id: 'g_ferry', cat: 'regional', rarity: 'common', icon: '⚓', title: '航海渡輪愛好者 (Ferry Enthusiast)', desc: '搭乘大型汽車渡輪跨越波羅的海與地中海 10 次。', xp: 1000 },
+            { id: 'g_map_50', cat: 'regional', rarity: 'epic', icon: '🗺️', title: '半數地圖開路者 (Map 50% Explorer)', desc: '探索遊戲全歐洲地圖道路達到 50% 開啟率。', xp: 4000 },
+            { id: 'g_map_100', cat: 'regional', rarity: 'mythic', icon: '🌟', title: '全地圖拓荒神靈 (Map 100% God)', desc: '探索遊戲全地圖道路達到 100% 完全解鎖！', xp: 20000 },
+            { id: 'g_capital', cat: 'regional', rarity: 'rare', icon: '🏰', title: '歐洲首都集郵家 (Capital Hopper)', desc: '在柏林、巴黎、倫敦、羅馬、馬德里等首都留下足跡。', xp: 2200 },
+            { id: 'g_black_sea', cat: 'regional', rarity: 'rare', icon: '🌊', title: '黑海之濱 (Road to Black Sea)', desc: '完成前往羅馬尼亞與土耳其伊斯坦堡的長途幹線。', xp: 1800 },
+
+            // CATEGORY 4: CAREER & FLEET MASTER (9 Items)
+            { id: 'c_lonewolf', cat: 'career', rarity: 'common', icon: '🐺', title: '孤狼司機 (Lone Wolf)', desc: '擁有第一輛屬於自己的卡車並完成首次自主接單。', xp: 500 },
+            { id: 'c_garage_10', cat: 'career', rarity: 'rare', icon: '🏭', title: '車庫大亨 (Garage Tycoon)', desc: '在歐洲各地擴建並購買超過 10 座大型卡車車庫。', xp: 2500 },
+            { id: 'c_fleet_50', cat: 'career', rarity: 'epic', icon: '🚛', title: '百台車隊司令 (Fleet Commander)', desc: '旗下僱用超過 50 名雇傭司機與 50 台旗艦卡車。', xp: 6000 },
+            { id: 'c_millionaire', cat: 'career', rarity: 'epic', icon: '💰', title: '歐元千萬富翁 (Fleet Millionaire)', desc: '公司總資產與現金儲備突破 €10,000,000 歐元！', xp: 8000 },
+            { id: 'c_mechanic', cat: 'career', rarity: 'rare', icon: '🔧', title: '改裝工程師 (Master Mechanic)', desc: '將旗艦卡車進行 100% 馬力、底盤與塗裝改裝升級。', xp: 1500 },
+            { id: 'c_eco', cat: 'career', rarity: 'common', icon: '🌱', title: '節能省油駕駛 (Eco-Driver)', desc: '解鎖省油駕駛技能等級，降低碳排放與油耗成本。', xp: 800 },
+            { id: 'c_brand', cat: 'career', rarity: 'rare', icon: '🏷️', title: '品牌忠誠者 (Brand Loyalty)', desc: '車隊統一採購同一品牌（如 Scania 或 Volvo）卡車 15 台。', xp: 2000 },
+            { id: 'c_profit', cat: 'career', rarity: 'rare', icon: '📈', title: '日進斗金 (Daily Profit)', desc: '旗下雇傭司機單日為公司創造超過 €100,000 利潤。', xp: 2200 },
+            { id: 'c_empire', cat: 'career', rarity: 'legendary', icon: '🏛️', title: '跨國物流帝國 (Logistics Empire)', desc: '解鎖所有歐洲主要城市車庫並滿員運營。', xp: 15000 },
+
+            // CATEGORY 5: FUN & ROLEPLAY CHALLENGES (8 Items)
+            { id: 'f_night', cat: 'fun', rarity: 'rare', icon: '🦉', title: '深夜不眠人 (Night Owl)', desc: '在深夜零點至清晨六點之間持續駕駛行駛超過 500 公里。', xp: 1200 },
+            { id: 'f_marathon', cat: 'fun', rarity: 'epic', icon: '🏃', title: '千米馬拉松 (Marathoner)', desc: '連續完成 1,000 公里任務且途中不進行任何休息睡覺。', xp: 2200 },
+            { id: 'f_speed', cat: 'fun', rarity: 'common', icon: '⚡', title: '限速器解除 (Speed Limiter Off)', desc: '關閉 90km/h 官方限速器，在德意志高速曲線上狂飆。', xp: 1000 },
+            { id: 'f_perfect_10', cat: 'fun', rarity: 'rare', icon: '🎯', title: '完美送達連勝 (Perfect Streak)', desc: '連續 10 趟任務達成 100% 零損壞、零逾期完美送達。', xp: 2000 },
+            { id: 'f_parking_god', cat: 'fun', rarity: 'epic', icon: '🅿️', title: '倒車神靈 (Parking God)', desc: '手動選擇最難倒車停車模式並精準完成 50 次。', xp: 3500 },
+            { id: 'f_nogps', cat: 'fun', rarity: 'legendary', icon: '🧭', title: '盲駕地圖大師 (GPS Hater)', desc: '關閉 GPS 導航與小地圖，僅憑路牌指示完成 800 公里任務。', xp: 4500 },
+            { id: 'f_horn', cat: 'fun', rarity: 'common', icon: '📢', title: '鳴笛招呼禮儀 (Friendly Horn)', desc: '在路上向對向車道卡車鳴笛打招呼，展現公路友誼。', xp: 300 },
+            { id: 'f_photo', cat: 'fun', rarity: 'common', icon: '📸', title: '風景攝影師 (Landscape Photo)', desc: '在歐洲名勝景點拍攝並儲存 10 張卡車風景照片。', xp: 500 }
+        ];
+
+        /* Application Master State */
+        let playerData = {
+            name: "歐卡老司機",
+            avatar: "🚛",
+            avatarUrl: null,
+            totalKm: 0,
+            xp: 0,
+            speedMultiplier: 68,
+            unlockedAchievements: [],
+            logs: [],
+            steamConnected: false,
+            steamId: '',
+            steamPlaytimeHours: 0,
+            steamProfileUrl: '#'
+        };
+
+        let currentView = 'home';
+        let currentCategory = 'all';
+        let currentStatus = 'all';
+
+        function loadState() {
+            const saved = localStorage.getItem('ets2_driver_system_v3_data');
+            if (saved) {
+                try {
+                    playerData = { ...playerData, ...JSON.parse(saved) };
+                } catch (e) {}
+            }
+            updateUI();
+        }
+
+        function saveState() {
+            localStorage.setItem('ets2_driver_system_v3_data', JSON.stringify(playerData));
+            updateUI();
+        }
+
+        function getDriverRank(xp) {
+            if (xp >= 150000) return { lvl: "LVL 5", title: "星際卡車傳奇", nextXp: 150000 };
+            if (xp >= 50000) return { lvl: "LVL 4", title: "跨國物流巨擘", nextXp: 150000 };
+            if (xp >= 15000) return { lvl: "LVL 3", title: "資深車隊大隊長", nextXp: 50000 };
+            if (xp >= 3000) return { lvl: "LVL 2", title: "職業巡迴手", nextXp: 15000 };
+            return { lvl: "LVL 1", title: "公路新手", nextXp: 3000 };
+        }
+
+        function switchView(viewName) {
+            playSound('click');
+            currentView = viewName;
+
+            ['home', 'achievements', 'logs'].forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                const navBtn = document.getElementById(`nav-${v}`);
+
+                if (v === viewName) {
+                    el.classList.remove('hidden');
+                    if (navBtn) {
+                        navBtn.className = "px-4 py-2 rounded-xl transition flex items-center gap-2 text-ets-orange bg-ets-orange/10 font-bold border border-ets-orange/30";
+                    }
+                } else {
+                    el.classList.add('hidden');
+                    if (navBtn) {
+                        navBtn.className = "px-4 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-ets-card transition flex items-center gap-2";
+                    }
+                }
+            });
+
+            if (viewName === 'achievements') renderAchievements();
+        }
+
+        function updateUI() {
+            // Header Profile & Steam Status
+            document.getElementById('headerDriverName').innerText = playerData.name;
+            if (playerData.avatarUrl) {
+                document.getElementById('headerAvatar').innerHTML = `<img src="${playerData.avatarUrl}" class="w-5 h-5 rounded-full object-cover">`;
+                document.getElementById('driverAvatarDisplay').innerHTML = `<img src="${playerData.avatarUrl}" class="w-full h-full object-cover">`;
+            } else {
+                document.getElementById('headerAvatar').innerText = playerData.avatar;
+                document.getElementById('driverAvatarDisplay').innerText = playerData.avatar;
+            }
+
+            // Steam Indicator
+            const steamDot = document.getElementById('steamStatusDot');
+            const steamPing = document.getElementById('steamStatusPing');
+            const steamText = document.getElementById('headerSteamStatusText');
+
+            if (playerData.steamConnected) {
+                steamDot.className = "relative inline-flex rounded-full h-2 w-2 bg-emerald-400";
+                steamPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                steamText.innerText = "Steam 已連結";
+                steamText.className = "font-tech text-ets-steamBlue font-bold";
+            } else {
+                steamDot.className = "relative inline-flex rounded-full h-2 w-2 bg-gray-400";
+                steamPing.className = "hidden";
+                steamText.innerText = "Steam 登入";
+                steamText.className = "font-tech text-gray-400";
+            }
+
+            // Driver Card Info
+            document.getElementById('driverNameDisplay').innerText = playerData.name;
+            const rank = getDriverRank(playerData.xp);
+            document.getElementById('driverLevelBadge').innerText = rank.lvl;
+            document.getElementById('driverTitleDisplay').innerText = rank.title;
+            document.getElementById('driverXPDisplay').innerText = `${playerData.xp.toLocaleString()} XP`;
+
+            const xpPct = Math.min(100, Math.floor((playerData.xp / rank.nextXp) * 100));
+            document.getElementById('xpProgressBar').style.width = `${xpPct}%`;
+
+            document.getElementById('steamPlaytimeDisplay').innerText = playerData.steamConnected ? `${playerData.steamPlaytimeHours} 小時` : '-- 小時';
+            document.getElementById('unlockedCountDisplay').innerText = `${playerData.unlockedAchievements.length} / ${MASTER_ACHIEVEMENTS.length}`;
+            document.getElementById('navBadgeAchCount').innerText = `${playerData.unlockedAchievements.length}/${MASTER_ACHIEVEMENTS.length}`;
+
+            // Progress Bar
+            const mileageAchs = MASTER_ACHIEVEMENTS.filter(a => a.cat === 'mileage');
+            let nextAch = mileageAchs.find(a => a.km > playerData.totalKm);
+            let goalKm = nextAch ? nextAch.km : 2000000;
+            let progressPct = Math.min(100, (playerData.totalKm / goalKm) * 100);
+
+            document.getElementById('mainProgressBar').style.width = `${progressPct}%`;
+            document.getElementById('progressPercentDisplay').innerText = `進度: ${progressPct.toFixed(1)}%`;
+            document.getElementById('nextGoalKmDisplay').innerText = `目標: ${goalKm.toLocaleString()} km`;
+
+            if (nextAch) {
+                document.getElementById('nextAchievementTip').innerText = `下一目標：${nextAch.title} (${nextAch.km.toLocaleString()} km)`;
+            } else {
+                document.getElementById('nextAchievementTip').innerText = `已達到最高最高榮譽殿堂！`;
+            }
+
+            document.getElementById('speedValueLabel').innerText = `${playerData.speedMultiplier} km/h`;
+            document.getElementById('speedSlider').value = playerData.speedMultiplier;
+
+            // Equivalence
+            document.getElementById('equivEarthDisplay').innerText = `${(playerData.totalKm / 40075).toFixed(2)} 圈`;
+            document.getElementById('equivMoonDisplay').innerText = `${((playerData.totalKm / 384400) * 100).toFixed(2)} %`;
+            document.getElementById('equivLondonParisDisplay').innerText = `${Math.floor(playerData.totalKm / 340)} 次`;
+            document.getElementById('equivEuroCrossDisplay').innerText = `${Math.floor(playerData.totalKm / 3500)} 趟`;
+
+            renderDeliveryLogs();
+            if (currentView === 'achievements') renderAchievements();
+        }
+
+        function setCategoryFilter(cat) {
+            playSound('click');
+            currentCategory = cat;
+            ['all', 'mileage', 'heavy', 'regional', 'career', 'fun'].forEach(c => {
+                const btn = document.getElementById(`cat-${c}`);
+                if (btn) {
+                    if (c === cat) {
+                        btn.className = "px-3.5 py-1.5 rounded-xl text-xs font-bold transition bg-ets-orange text-black";
+                    } else {
+                        btn.className = "px-3.5 py-1.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white bg-ets-dark transition";
+                    }
+                }
+            });
+            renderAchievements();
+        }
+
+        function setStatusFilter(status) {
+            playSound('click');
+            currentStatus = status;
+            ['all', 'unlocked', 'locked'].forEach(s => {
+                const btn = document.getElementById(`status-${s}`);
+                if (btn) {
+                    if (s === status) {
+                        btn.className = "text-ets-amber font-bold underline";
+                    } else {
+                        btn.className = "text-gray-400 hover:text-white";
+                    }
+                }
+            });
+            renderAchievements();
+        }
+
+        function renderAchievements() {
+            const grid = document.getElementById('achievementsGrid');
+            grid.innerHTML = '';
+
+            const searchQuery = document.getElementById('achSearchInput')?.value.toLowerCase().trim() || '';
+
+            const filtered = MASTER_ACHIEVEMENTS.filter(item => {
+                const isUnlocked = playerData.unlockedAchievements.includes(item.id);
+
+                // Category filter
+                if (currentCategory !== 'all' && item.cat !== currentCategory) return false;
+
+                // Status filter
+                if (currentStatus === 'unlocked' && !isUnlocked) return false;
+                if (currentStatus === 'locked' && isUnlocked) return false;
+
+                // Search query filter
+                if (searchQuery) {
+                    const matchTitle = item.title.toLowerCase().includes(searchQuery);
+                    const matchDesc = item.desc.toLowerCase().includes(searchQuery);
+                    if (!matchTitle && !matchDesc) return false;
+                }
+
+                return true;
+            });
+
+            document.getElementById('filteredResultsCount').innerText = `顯示 ${filtered.length} / ${MASTER_ACHIEVEMENTS.length} 個成就`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500 text-sm">沒有找到符合條件的成就</div>`;
+                return;
+            }
+
+            const rarityBadgeStyle = {
+                common: 'bg-gray-700/50 text-gray-300 border-gray-600',
+                rare: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+                epic: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+                legendary: 'bg-amber-500/10 text-yellow-400 border-yellow-500/30',
+                mythic: 'bg-rose-500/10 text-rose-400 border-rose-500/30 font-bold'
+            };
+
+            filtered.forEach(item => {
+                const isUnlocked = playerData.unlockedAchievements.includes(item.id);
+
+                // Calculate progress %
+                let progressPct = 0;
+                if (isUnlocked) {
+                    progressPct = 100;
+                } else if (item.km) {
+                    progressPct = Math.min(100, Math.floor((playerData.totalKm / item.km) * 100));
+                }
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border transition duration-300 flex flex-col justify-between relative overflow-hidden ${
+                    isUnlocked 
+                    ? 'bg-gradient-to-br from-ets-card to-[#1f232c] border-ets-orange/50 ets-glow' 
+                    : 'bg-ets-dark/60 border-ets-border/50 opacity-75'
+                }`;
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div class="w-12 h-12 rounded-xl ${isUnlocked ? 'bg-ets-orange/20 border border-ets-orange/40 text-ets-amber' : 'bg-gray-800 text-gray-500'} flex items-center justify-center text-2xl shrink-0">
+                                ${item.icon}
+                            </div>
+                            <div class="text-right flex flex-col items-end gap-1">
+                                <span class="text-[10px] font-tech uppercase px-2 py-0.5 rounded border ${rarityBadgeStyle[item.rarity]}">${item.rarity}</span>
+                                ${isUnlocked ? '<span class="text-[10px] text-yellow-400 font-bold"><i class="fa-solid fa-circle-check"></i> 已解鎖</span>' : '<span class="text-[10px] text-gray-500"><i class="fa-solid fa-lock"></i> 未解鎖</span>'}
+                            </div>
+                        </div>
+
+                        <h4 class="font-bold text-sm ${isUnlocked ? 'text-white' : 'text-gray-300'} mb-1">${item.title}</h4>
+                        <p class="text-xs text-gray-400 leading-relaxed mb-3">${item.desc}</p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <!-- Progress bar inside achievement card -->
+                        <div class="w-full bg-ets-dark rounded-full h-1.5 overflow-hidden border border-ets-border/40">
+                            <div class="bg-gradient-to-r from-ets-orange to-yellow-400 h-full transition-all duration-300" style="width: ${progressPct}%;"></div>
+                        </div>
+
+                        <div class="flex justify-between items-center text-[10px] text-gray-500 font-tech pt-1 border-t border-ets-border/40">
+                            <span>+${item.xp} XP 獎勵</span>
+                            <span>${item.km ? `${playerData.totalKm.toLocaleString()} / ${item.km.toLocaleString()} km` : `${progressPct}%`}</span>
+                        </div>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        /* STEAM & DATA MANAGEMENT LOGIC */
+        function openSteamConnectModal() {
+            playSound('click');
+            document.getElementById('steamInputId').value = playerData.steamId;
+            document.getElementById('steamModal').classList.remove('hidden');
+        }
+
+        function closeSteamConnectModal() {
+            document.getElementById('steamModal').classList.add('hidden');
+        }
+
+        function syncSteamAccount() {
+            const inputVal = document.getElementById('steamInputId').value.trim();
+            if (!inputVal) return;
+
+            playSound('click');
+            playerData.steamId = inputVal;
+            playerData.steamConnected = true;
+            playerData.name = `Steam_Trucker_${inputVal.substring(0, 5)}`;
+            playerData.steamPlaytimeHours = 450;
+            playerData.steamProfileUrl = `https://steamcommunity.com/profiles/${inputVal}`;
+            playerData.totalKm = Math.round(playerData.steamPlaytimeHours * playerData.speedMultiplier);
+
+            checkAchievements();
+            saveState();
+            closeSteamConnectModal();
+            alert(`Steam 數據同步成功！已為你智慧計算轉換里程：${playerData.totalKm.toLocaleString()} km`);
+        }
+
+        function loadDemoSteamAccount() {
+            playSound('click');
+            playerData.steamConnected = true;
+            playerData.steamId = "76561198888888888";
+            playerData.name = "歐卡傳奇老陳 (Steam)";
+            playerData.steamPlaytimeHours = 820;
+            playerData.speedMultiplier = 72;
+            playerData.totalKm = Math.round(820 * 72); // ~59,040 km
+
+            checkAchievements();
+            saveState();
+            closeSteamConnectModal();
+        }
+
+        function addMileage(km) {
+            playSound('click');
+            playerData.totalKm += km;
+            checkAchievements();
+            saveState();
+        }
+
+        function setManualMileage() {
+            playSound('click');
+            const val = parseInt(document.getElementById('manualKmInput').value);
+            if (!isNaN(val) && val >= 0) {
+                playerData.totalKm = val;
+                document.getElementById('manualKmInput').value = '';
+                checkAchievements();
+                saveState();
+            }
+        }
+
+        function updateSpeedMultiplier(val) {
+            playerData.speedMultiplier = parseInt(val);
+            document.getElementById('speedValueLabel').innerText = `${val} km/h`;
+        }
+
+        function recalculateSteamKm() {
+            playSound('click');
+            if (playerData.steamConnected && playerData.steamPlaytimeHours > 0) {
+                playerData.totalKm = Math.round(playerData.steamPlaytimeHours * playerData.speedMultiplier);
+                checkAchievements();
+                saveState();
+            }
+        }
+
+        function checkAchievements() {
+            let newlyUnlocked = [];
+
+            MASTER_ACHIEVEMENTS.forEach(ach => {
+                let conditionMet = false;
+
+                // Check condition (Mileage condition or automatic unlock with steam)
+                if (ach.km && playerData.totalKm >= ach.km) {
+                    conditionMet = true;
+                } else if (!ach.km && playerData.steamConnected && playerData.totalKm > 10000) {
+                    // Random sample simulation for non-mileage challenges
+                    if (['h_trans', 'g_alps', 'c_lonewolf', 'f_night'].includes(ach.id)) {
+                        conditionMet = true;
+                    }
+                }
+
+                if (conditionMet && !playerData.unlockedAchievements.includes(ach.id)) {
+                    playerData.unlockedAchievements.push(ach.id);
+                    playerData.xp += ach.xp;
+                    newlyUnlocked.push(ach);
+                }
+            });
+
+            if (newlyUnlocked.length > 0) {
+                const latest = newlyUnlocked[newlyUnlocked.length - 1];
+                showUnlockBanner(latest);
+            }
+        }
+
+        function showUnlockBanner(ach) {
+            playSound('unlock');
+            document.getElementById('unlockBannerTitle').innerText = `${ach.icon} ${ach.title}`;
+            document.getElementById('unlockBannerDesc').innerText = ach.desc;
+            document.getElementById('unlockBannerModal').classList.remove('hidden');
+        }
+
+        function closeUnlockBanner() {
+            playSound('click');
+            document.getElementById('unlockBannerModal').classList.add('hidden');
+        }
+
+        function openDeliveryModal() {
+            playSound('click');
+            document.getElementById('deliveryModal').classList.remove('hidden');
+        }
+
+        function closeDeliveryModal() {
+            document.getElementById('deliveryModal').classList.add('hidden');
+        }
+
+        function handleDeliverySubmit(e) {
+            e.preventDefault();
+            const origin = document.getElementById('logOrigin').value;
+            const dest = document.getElementById('logDestination').value;
+            const distance = parseInt(document.getElementById('logDistance').value);
+            const cargo = document.getElementById('logCargo').value || '標準貨物';
+
+            if (distance > 0) {
+                const logEntry = {
+                    id: Date.now(),
+                    date: new Date().toLocaleDateString(),
+                    origin,
+                    destination: dest,
+                    distance,
+                    cargo
+                };
+
+                playerData.logs.unshift(logEntry);
+                playerData.totalKm += distance;
+                playerData.xp += Math.floor(distance * 0.5);
+
+                checkAchievements();
+                saveState();
+
+                document.getElementById('logOrigin').value = '';
+                document.getElementById('logDestination').value = '';
+                document.getElementById('logDistance').value = '';
+                document.getElementById('logCargo').value = '';
+
+                closeDeliveryModal();
+            }
+        }
+
+        function renderDeliveryLogs() {
+            const tbody = document.getElementById('deliveryLogTableBody');
+            if (playerData.logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-gray-500">目前尚無配送記錄</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = playerData.logs.map(log => `
+                <tr class="hover:bg-ets-dark/40 transition">
+                    <td class="py-3 font-tech text-gray-400">${log.date}</td>
+                    <td class="py-3 font-semibold text-white">${log.origin} → ${log.destination}</td>
+                    <td class="py-3 text-gray-300">${log.cargo}</td>
+                    <td class="py-3 text-right font-tech font-bold text-ets-orange">+${log.distance.toLocaleString()} km</td>
+                </tr>
+            `).join('');
+        }
+
+        function openAvatarModal() {
+            playSound('click');
+            document.getElementById('editDriverName').value = playerData.name;
+            document.getElementById('avatarModal').classList.remove('hidden');
+        }
+
+        function closeAvatarModal() {
+            document.getElementById('avatarModal').classList.add('hidden');
+        }
+
+        let selectedTempAvatar = playerData.avatar;
+        function selectAvatar(emoji) {
+            playSound('click');
+            selectedTempAvatar = emoji;
+            playerData.avatarUrl = null;
+        }
+
+        function saveProfile() {
+            playSound('click');
+            const newName = document.getElementById('editDriverName').value.trim();
+            if (newName) playerData.name = newName;
+            playerData.avatar = selectedTempAvatar;
+            saveState();
+            closeAvatarModal();
+        }
+
+        function generateShareCard() {
+            playSound('click');
+            const rank = getDriverRank(playerData.xp);
+            
+            if (playerData.avatarUrl) {
+                document.getElementById('shareAvatar').innerHTML = `<img src="${playerData.avatarUrl}" class="w-full h-full object-cover">`;
+            } else {
+                document.getElementById('shareAvatar').innerText = playerData.avatar;
+            }
+
+            document.getElementById('shareName').innerText = playerData.name;
+            document.getElementById('shareTitle').innerText = rank.title;
+            document.getElementById('shareSteamTag').innerText = playerData.steamConnected ? `Steam ID: ${playerData.steamId.substring(0,8)}...` : '單機自訂模式';
+            document.getElementById('shareKm').innerText = `${playerData.totalKm.toLocaleString()} km`;
+            document.getElementById('shareHours').innerText = `${playerData.steamPlaytimeHours} hrs`;
+            document.getElementById('shareAchievements').innerText = `${playerData.unlockedAchievements.length} / ${MASTER_ACHIEVEMENTS.length}`;
+            document.getElementById('shareEarth').innerText = (playerData.totalKm / 40075).toFixed(1);
+
+            document.getElementById('shareModal').classList.remove('hidden');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.add('hidden');
+        }
+
+        function downloadCardImage() {
+            const captureArea = document.getElementById('captureArea');
+            html2canvas(captureArea, {
+                backgroundColor: '#121317',
+                scale: 2
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `${playerData.name}_ETS2_Driver_Card.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        function resetData() {
+            if (confirm("確定要重置所有駕駛里程、日誌與成就嗎？")) {
+                localStorage.removeItem('ets2_driver_system_v3_data');
+                playerData = {
+                    name: "歐卡老司機",
+                    avatar: "🚛",
+                    avatarUrl: null,
+                    totalKm: 0,
+                    xp: 0,
+                    speedMultiplier: 68,
+                    unlockedAchievements: [],
+                    logs: [],
+                    steamConnected: false,
+                    steamId: '',
+                    steamPlaytimeHours: 0,
+                    steamProfileUrl: '#'
+                };
+                saveState();
+            }
+        }
+
+        /* Initial Startup */
+        window.onload = function() {
+            loadState();
+        };
+    </script>
+</body>
+</html>
